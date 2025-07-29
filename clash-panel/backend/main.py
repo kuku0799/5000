@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import yaml
@@ -10,8 +11,25 @@ import asyncio
 import json
 from datetime import datetime
 import uvicorn
+import logging
+from pathlib import Path
 
-app = FastAPI(title="Clash Management Panel", version="1.0.0")
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('/opt/clash-panel/logs/clash-panel.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+app = FastAPI(
+    title="Clash Management Panel", 
+    version="2.0.0",
+    description="现代化的 Clash 管理面板"
+)
 
 # CORS 配置
 app.add_middleware(
@@ -33,12 +51,16 @@ class Node(BaseModel):
     port: int
     latency: Optional[int] = None
     alive: bool = True
+    country: Optional[str] = None
+    city: Optional[str] = None
 
 class ProxyGroup(BaseModel):
     name: str
     type: str
     proxies: List[str]
     now: Optional[str] = None
+    url: Optional[str] = None
+    interval: Optional[int] = None
 
 class ClashStatus(BaseModel):
     running: bool
@@ -46,53 +68,143 @@ class ClashStatus(BaseModel):
     uptime: Optional[str] = None
     memory_usage: Optional[str] = None
     cpu_usage: Optional[str] = None
+    version: Optional[str] = None
 
-# 配置文件路径
-CONFIG_PATH = "/etc/openclash/config.yaml"
-CLASH_SERVICE = "openclash"
+class ConfigUpdate(BaseModel):
+    config: Dict[str, Any]
+    backup: bool = True
+
+# 配置管理
+class ConfigManager:
+    def __init__(self):
+        self.config_path = "/opt/clash-panel/config.json"
+        self.default_config = {
+            "server": {
+                "host": "0.0.0.0",
+                "port": 8000,
+                "debug": False
+            },
+            "clash": {
+                "config_path": "/etc/openclash/config.yaml",
+                "service_name": "openclash",
+                "log_path": "/root/OpenClashManage/wangluo/log.txt"
+            },
+            "security": {
+                "enable_auth": False,
+                "username": "admin",
+                "password": "admin123"
+            },
+            "ui": {
+                "title": "Clash 管理面板",
+                "theme": "default",
+                "auto_refresh": 30
+            }
+        }
+        self.load_config()
+    
+    def load_config(self):
+        """加载配置文件"""
+        try:
+            if os.path.exists(self.config_path):
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    self.config = json.load(f)
+            else:
+                self.config = self.default_config
+                self.save_config()
+        except Exception as e:
+            logger.error(f"加载配置文件失败: {e}")
+            self.config = self.default_config
+    
+    def save_config(self):
+        """保存配置文件"""
+        try:
+            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+            with open(self.config_path, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"保存配置文件失败: {e}")
+    
+    def get(self, key, default=None):
+        """获取配置值"""
+        keys = key.split('.')
+        value = self.config
+        for k in keys:
+            if isinstance(value, dict) and k in value:
+                value = value[k]
+            else:
+                return default
+        return value
+
+# 全局配置管理器
+config_manager = ConfigManager()
 
 class ClashManager:
     def __init__(self):
-        self.config_path = CONFIG_PATH
-        self.service_name = CLASH_SERVICE
+        self.config_path = config_manager.get("clash.config_path", "/etc/openclash/config.yaml")
+        self.service_name = config_manager.get("clash.service_name", "openclash")
+        self.log_path = config_manager.get("clash.log_path", "/root/OpenClashManage/wangluo/log.txt")
     
     def get_config(self) -> Dict[str, Any]:
         """读取 Clash 配置文件"""
         try:
+            if not os.path.exists(self.config_path):
+                raise FileNotFoundError(f"配置文件不存在: {self.config_path}")
+            
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f)
         except Exception as e:
+            logger.error(f"读取配置文件失败: {e}")
             raise HTTPException(status_code=500, detail=f"读取配置文件失败: {str(e)}")
     
-    def save_config(self, config: Dict[str, Any]):
+    def save_config(self, config: Dict[str, Any], backup: bool = True):
         """保存 Clash 配置文件"""
         try:
-            # 备份原配置
-            backup_path = f"{self.config_path}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            if os.path.exists(self.config_path):
-                os.system(f"cp {self.config_path} {backup_path}")
+            if backup:
+                # 创建备份
+                backup_dir = "/opt/clash-panel/backups"
+                os.makedirs(backup_dir, exist_ok=True)
+                backup_path = f"{backup_dir}/config_{datetime.now().strftime('%Y%m%d_%H%M%S')}.yaml"
+                
+                if os.path.exists(self.config_path):
+                    import shutil
+                    shutil.copy2(self.config_path, backup_path)
+                    logger.info(f"配置文件已备份到: {backup_path}")
             
+            # 保存新配置
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
             
-            return {"message": "配置保存成功", "backup": backup_path}
+            logger.info("配置文件保存成功")
+            return {"message": "配置保存成功", "backup": backup_path if backup else None}
         except Exception as e:
+            logger.error(f"保存配置文件失败: {e}")
             raise HTTPException(status_code=500, detail=f"保存配置文件失败: {str(e)}")
     
     def get_service_status(self) -> ClashStatus:
         """获取 Clash 服务状态"""
         try:
-            result = subprocess.run(
-                ["/etc/init.d/openclash", "status"],
-                capture_output=True,
-                text=True
-            )
-            running = "running" in result.stdout.lower()
+            # 检查服务状态
+            if os.path.exists("/etc/init.d/openclash"):
+                result = subprocess.run(
+                    ["/etc/init.d/openclash", "status"],
+                    capture_output=True,
+                    text=True
+                )
+                running = "running" in result.stdout.lower()
+            else:
+                # 检查进程
+                result = subprocess.run(
+                    ["pgrep", "-f", "clash"],
+                    capture_output=True,
+                    text=True
+                )
+                running = result.returncode == 0
             
-            # 获取内存和CPU使用情况
+            # 获取系统信息
             memory = "0 KB"
             cpu = "0%"
             uptime = None
+            version = None
             
             if running:
                 try:
@@ -110,6 +222,18 @@ class ClashManager:
                             if len(parts) >= 3:
                                 cpu = f"{parts[2]}%"
                                 memory = f"{parts[5]} KB"
+                except Exception as e:
+                    logger.warning(f"获取进程信息失败: {e}")
+                
+                # 获取版本信息
+                try:
+                    version_result = subprocess.run(
+                        ["clash", "-v"],
+                        capture_output=True,
+                        text=True
+                    )
+                    if version_result.returncode == 0:
+                        version = version_result.stdout.strip()
                 except:
                     pass
             
@@ -118,21 +242,34 @@ class ClashManager:
                 mode="rule",  # 默认模式
                 uptime=uptime,
                 memory_usage=memory,
-                cpu_usage=cpu
+                cpu_usage=cpu,
+                version=version
             )
         except Exception as e:
+            logger.error(f"获取服务状态失败: {e}")
             return ClashStatus(running=False, mode="unknown")
     
     def restart_service(self):
         """重启 Clash 服务"""
         try:
-            result = subprocess.run(
-                ["/etc/init.d/openclash", "restart"],
-                capture_output=True,
-                text=True
-            )
+            if os.path.exists("/etc/init.d/openclash"):
+                result = subprocess.run(
+                    ["/etc/init.d/openclash", "restart"],
+                    capture_output=True,
+                    text=True
+                )
+            else:
+                # 尝试使用 systemctl
+                result = subprocess.run(
+                    ["systemctl", "restart", "openclash"],
+                    capture_output=True,
+                    text=True
+                )
+            
+            logger.info("服务重启成功")
             return {"message": "服务重启成功", "output": result.stdout}
         except Exception as e:
+            logger.error(f"重启服务失败: {e}")
             raise HTTPException(status_code=500, detail=f"重启服务失败: {str(e)}")
     
     def test_node_latency(self, node_name: str) -> int:
@@ -143,16 +280,44 @@ class ClashManager:
             import random
             return random.randint(50, 300)
         except Exception as e:
+            logger.error(f"测试节点延迟失败: {e}")
             return -1
+    
+    def get_backups(self) -> List[Dict[str, Any]]:
+        """获取备份文件列表"""
+        try:
+            backup_dir = "/opt/clash-panel/backups"
+            if not os.path.exists(backup_dir):
+                return []
+            
+            backups = []
+            for file in os.listdir(backup_dir):
+                if file.endswith('.yaml'):
+                    file_path = os.path.join(backup_dir, file)
+                    stat = os.stat(file_path)
+                    backups.append({
+                        "filename": file,
+                        "size": stat.st_size,
+                        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                    })
+            
+            return sorted(backups, key=lambda x: x["modified"], reverse=True)
+        except Exception as e:
+            logger.error(f"获取备份列表失败: {e}")
+            return []
 
 # 全局管理器实例
 clash_manager = ClashManager()
 
 # API 路由
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """根路径"""
-    return {"message": "Clash Management Panel API"}
+    """根路径 - 返回前端页面"""
+    try:
+        with open("static/index.html", "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>Clash 管理面板</h1><p>前端文件未找到</p>")
 
 @app.get("/api/status")
 async def get_status():
@@ -179,6 +344,7 @@ async def get_nodes():
         
         return result
     except Exception as e:
+        logger.error(f"获取节点列表失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/groups")
@@ -194,11 +360,14 @@ async def get_groups():
                 name=group.get("name", ""),
                 type=group.get("type", ""),
                 proxies=group.get("proxies", []),
-                now=group.get("now", "")
+                now=group.get("now", ""),
+                url=group.get("url", ""),
+                interval=group.get("interval", 300)
             ))
         
         return result
     except Exception as e:
+        logger.error(f"获取策略组失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/restart")
@@ -212,9 +381,9 @@ async def get_config():
     return clash_manager.get_config()
 
 @app.post("/api/config")
-async def save_config(config: Dict[str, Any]):
+async def save_config(config_update: ConfigUpdate):
     """保存配置"""
-    return clash_manager.save_config(config)
+    return clash_manager.save_config(config_update.config, config_update.backup)
 
 @app.get("/api/node/{node_name}/test")
 async def test_node(node_name: str):
@@ -226,7 +395,7 @@ async def test_node(node_name: str):
 async def get_logs(lines: int = 100):
     """获取日志"""
     try:
-        log_path = "/root/OpenClashManage/wangluo/log.txt"
+        log_path = clash_manager.log_path
         if os.path.exists(log_path):
             with open(log_path, 'r', encoding='utf-8') as f:
                 log_lines = f.readlines()
@@ -234,7 +403,61 @@ async def get_logs(lines: int = 100):
         else:
             return {"logs": ["日志文件不存在"]}
     except Exception as e:
+        logger.error(f"读取日志失败: {e}")
         return {"logs": [f"读取日志失败: {str(e)}"]}
 
+@app.get("/api/backups")
+async def get_backups():
+    """获取备份文件列表"""
+    return {"backups": clash_manager.get_backups()}
+
+@app.get("/api/panel-config")
+async def get_panel_config():
+    """获取面板配置"""
+    return config_manager.config
+
+@app.post("/api/panel-config")
+async def save_panel_config(config: Dict[str, Any]):
+    """保存面板配置"""
+    try:
+        config_manager.config.update(config)
+        config_manager.save_config()
+        return {"message": "面板配置保存成功"}
+    except Exception as e:
+        logger.error(f"保存面板配置失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/system-info")
+async def get_system_info():
+    """获取系统信息"""
+    try:
+        import platform
+        import psutil
+        
+        return {
+            "platform": platform.platform(),
+            "python_version": platform.python_version(),
+            "cpu_count": psutil.cpu_count(),
+            "memory_total": f"{psutil.virtual_memory().total / (1024**3):.2f} GB",
+            "disk_usage": f"{psutil.disk_usage('/').percent:.1f}%"
+        }
+    except ImportError:
+        return {
+            "platform": "Unknown",
+            "python_version": "Unknown",
+            "cpu_count": "Unknown",
+            "memory_total": "Unknown",
+            "disk_usage": "Unknown"
+        }
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    # 确保日志目录存在
+    os.makedirs("/opt/clash-panel/logs", exist_ok=True)
+    
+    # 启动服务器
+    host = config_manager.get("server.host", "0.0.0.0")
+    port = config_manager.get("server.port", 8000)
+    debug = config_manager.get("server.debug", False)
+    
+    logger.info(f"启动 Clash 管理面板服务器: {host}:{port}")
+    uvicorn.run(app, host=host, port=port, debug=debug) 
