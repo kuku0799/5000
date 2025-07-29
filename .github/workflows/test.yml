@@ -1,0 +1,42 @@
+name: Test Scripts
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ruamel.yaml
+    
+    - name: Test Python syntax
+      run: |
+        python -m py_compile jx.py
+        python -m py_compile zr.py
+        python -m py_compile zw.py
+        python -m py_compile zc.py
+        python -m py_compile log.py
+    
+    - name: Test shell scripts
+      run: |
+        bash -n install.sh
+        bash -n uninstall.sh
+        bash -n jk.sh
+    
+    - name: Check file permissions
+      run: |
+        ls -la *.sh *.py 
