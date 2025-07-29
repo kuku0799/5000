@@ -44,7 +44,7 @@ jx.py (节点解析) → zw.py (代理注入) → zc.py (策略组注入)
 
 ```bash
 # 下载并运行安装脚本
-wget -O install.sh https://raw.githubusercontent.com/你的用户名/OpenClashManage/main/install.sh
+wget -O install.sh https://raw.githubusercontent.com/kuku0799/OpenClashManage-1/main/install.sh
 chmod +x install.sh
 ./install.sh
 ```
@@ -53,7 +53,7 @@ chmod +x install.sh
 
 ```bash
 # 克隆仓库
-git clone https://github.com/你的用户名/OpenClashManage.git
+git clone https://github.com/kuku0799/OpenClashManage-1.git
 cd OpenClashManage
 
 # 运行安装脚本
