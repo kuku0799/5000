@@ -54,7 +54,7 @@ chmod +x install.sh
 ```bash
 # 克隆仓库
 git clone https://github.com/kuku0799/OpenClashManage-1.git
-cd OpenClashManage
+cd OpenClashManage-1
 
 # 运行安装脚本
 chmod +x install.sh
@@ -246,7 +246,7 @@ def should_inject_group(group_name: str, group_config: dict) -> bool:
 
 ```bash
 # 下载卸载脚本
-wget https://raw.githubusercontent.com/your-repo/OpenClashManage/main/uninstall.sh
+wget https://raw.githubusercontent.com/kuku0799/OpenClashManage-1/main/uninstall.sh
 
 # 运行卸载脚本
 chmod +x uninstall.sh
@@ -290,4 +290,4 @@ MIT License
 如有问题，请查看：
 1. 日志文件：`/root/OpenClashManage/wangluo/log.txt`
 2. 系统日志：`logread | grep openclash`
-3. 配置文件：`/etc/openclash/config.yaml` 
+3. 配置文件：`/etc/openclash/config.yaml`
