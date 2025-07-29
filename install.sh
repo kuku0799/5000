@@ -87,24 +87,44 @@ create_directories() {
     log_info "目录创建完成"
 }
 
-# 复制脚本文件
-copy_scripts() {
-    log_step "复制脚本文件..."
+# 下载脚本文件
+download_scripts() {
+    log_step "下载脚本文件..."
     
-    # 检查当前目录是否有脚本文件
-    if [[ ! -f "jk.sh" ]]; then
-        log_error "未找到脚本文件，请确保在正确的目录中运行此脚本"
-        exit 1
-    fi
+    # GitHub 仓库信息
+    GITHUB_USER="kuku0799"
+    GITHUB_REPO="OpenClashManage-1"
+    GITHUB_BRANCH="main"
+    BASE_URL="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}"
     
-    # 复制脚本文件
-    cp jk.sh zr.py jx.py zw.py zc.py log.py /root/OpenClashManage/
+    # 脚本文件列表
+    SCRIPTS=(
+        "jk.sh"
+        "zr.py"
+        "jx.py"
+        "zw.py"
+        "zc.py"
+        "log.py"
+        "uninstall.sh"
+    )
+    
+    cd /root/OpenClashManage
+    
+    # 下载所有脚本文件
+    for script in "${SCRIPTS[@]}"; do
+        log_info "下载 ${script}..."
+        if wget -q "${BASE_URL}/${script}" -O "${script}"; then
+            log_info "✅ ${script} 下载成功"
+        else
+            log_error "❌ ${script} 下载失败"
+            exit 1
+        fi
+    done
     
     # 设置执行权限
-    chmod +x /root/OpenClashManage/*.sh
-    chmod +x /root/OpenClashManage/*.py
+    chmod +x *.sh *.py
     
-    log_info "脚本文件复制完成"
+    log_info "脚本文件下载完成"
 }
 
 # 创建服务文件
@@ -244,7 +264,7 @@ main() {
     check_system
     install_openclash
     create_directories
-    copy_scripts
+    download_scripts
     create_service
     create_sample_nodes
     configure_firewall
