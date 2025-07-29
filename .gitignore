@@ -1,33 +1,83 @@
-# IDE 和编辑器文件
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# 系统文件
+# OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# 临时文件
-*.tmp
+# Logs
 *.log
-*.pid
+logs/
 
-# 工作区文件
-workspace.code-workspace
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
-# 测试文件
-test_*
-*_test.py
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# 备份文件
-*.bak
+# Node.js (if using npm/yarn for frontend build)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+.dockerignore
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Backup files
 *.backup
+*.bak
+*.old
 
-# 锁文件
-*.lock
-
-# 本地配置文件
-config.local.yaml
-nodes.local.txt 
+# Clash specific
+clash-config-backup/ 
