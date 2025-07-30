@@ -29,6 +29,54 @@ log_step() {
     echo -e "${BLUE}[STEP]${NC} $1"
 }
 
+# 安装 Python3
+install_python3() {
+    log_step "安装 Python3..."
+    
+    if command -v python3 &> /dev/null; then
+        log_info "Python3 已安装"
+        return 0
+    fi
+    
+    # 更新软件包列表
+    opkg update
+    
+    # 安装 Python3 和相关包
+    log_info "正在安装 Python3..."
+    opkg install python3 python3-pip python3-requests python3-yaml
+    
+    # 验证安装
+    if command -v python3 &> /dev/null; then
+        log_info "Python3 安装成功"
+        return 0
+    else
+        log_error "Python3 安装失败"
+        return 1
+    fi
+}
+
+# 安装 pip3
+install_pip3() {
+    log_step "安装 pip3..."
+    
+    if command -v pip3 &> /dev/null; then
+        log_info "pip3 已安装"
+        return 0
+    fi
+    
+    # 尝试安装 pip3
+    opkg install python3-pip
+    
+    # 验证安装
+    if command -v pip3 &> /dev/null; then
+        log_info "pip3 安装成功"
+        return 0
+    else
+        log_warn "pip3 安装失败，将使用 opkg 安装依赖"
+        return 1
+    fi
+}
+
 # 检查系统
 check_system() {
     log_step "检查系统环境..."
@@ -38,15 +86,26 @@ check_system() {
         log_warn "未检测到 OpenWrt 系统，但继续安装..."
     fi
     
-    # 检查 Python3
+    # 检查并安装 Python3
     if ! command -v python3 &> /dev/null; then
-        log_error "Python3 未安装，请先安装 Python3"
-        exit 1
+        log_warn "Python3 未安装，正在自动安装..."
+        if ! install_python3; then
+            log_error "无法安装 Python3，请手动安装后重试"
+            log_info "手动安装命令：opkg update && opkg install python3 python3-pip"
+            exit 1
+        fi
+    fi
+    
+    # 检查并安装 pip3
+    if ! command -v pip3 &> /dev/null; then
+        log_warn "pip3 未安装，正在自动安装..."
+        install_pip3
     fi
     
     # 检查 OpenClash
     if [ ! -f "/etc/init.d/openclash" ]; then
         log_warn "未检测到 OpenClash，请确保已安装 OpenClash"
+        log_info "OpenClash 安装命令：opkg install luci-app-openclash"
     fi
     
     log_info "系统检查完成"
@@ -120,10 +179,14 @@ install_dependencies() {
     log_step "安装 Python 依赖..."
     
     if command -v pip3 &> /dev/null; then
+        log_info "使用 pip3 安装依赖..."
         pip3 install -r /root/OpenClashManage/requirements.txt
         log_info "Python 依赖安装完成"
     else
-        log_warn "pip3 未找到，请手动安装依赖：pip3 install Flask==2.3.3 Werkzeug==2.3.7"
+        log_warn "pip3 未找到，尝试使用 opkg 安装依赖..."
+        # 尝试使用 opkg 安装 Flask
+        opkg install python3-flask python3-werkzeug
+        log_info "使用 opkg 安装依赖完成"
     fi
 }
 
