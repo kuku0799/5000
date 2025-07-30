@@ -66,9 +66,9 @@ create_directories() {
 download_files() {
     log_step "下载项目文件..."
     
-    # 设置 GitHub 仓库信息（需要用户修改）
-    GITHUB_USER="你的GitHub用户名"
-    GITHUB_REPO="你的仓库名"
+    # 设置 GitHub 仓库信息
+    GITHUB_USER="kuku0799"
+    GITHUB_REPO="5000"
     GITHUB_BRANCH="main"
     
     # 下载核心文件

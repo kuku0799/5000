@@ -23,18 +23,18 @@
 
 ```bash
 # 方法1：使用 wget
-wget -O - https://raw.githubusercontent.com/你的用户名/你的仓库名/main/install.sh | bash
+wget -O - https://raw.githubusercontent.com/kuku0799/5000/main/install.sh | bash
 
 # 方法2：使用 curl
-curl -sSL https://raw.githubusercontent.com/你的用户名/你的仓库名/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/kuku0799/5000/main/install.sh | bash
 ```
 
 ### 手动部署
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/你的用户名/你的仓库名.git
-cd 你的仓库名
+git clone https://github.com/kuku0799/5000.git
+cd 5000
 
 # 2. 安装依赖
 pip3 install -r requirements.txt
