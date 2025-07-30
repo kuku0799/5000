@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wangluo 文件编辑器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #4a5568;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            text-align: center;
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            height: calc(100vh - 200px);
+        }
+
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .editor-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .file-list {
+            margin-bottom: 20px;
+        }
+
+        .file-list h3 {
+            color: #4a5568;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .file-item {
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            background: #f7fafc;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .file-item:hover {
+            background: #edf2f7;
+            transform: translateX(5px);
+        }
+
+        .file-item.active {
+            background: #e6fffa;
+            border-color: #38b2ac;
+            color: #2d3748;
+        }
+
+        .file-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .file-info {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .file-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: #4299e1;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #3182ce;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+            transform: translateY(-2px);
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        .editor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .editor-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .editor-container {
+            flex: 1;
+            position: relative;
+        }
+
+        .editor-textarea {
+            width: 100%;
+            height: 100%;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            resize: none;
+            background: #fafafa;
+            color: #2d3748;
+            transition: border-color 0.3s ease;
+        }
+
+        .editor-textarea:focus {
+            outline: none;
+            border-color: #4299e1;
+            background: white;
+        }
+
+        .status-bar {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal h3 {
+            margin-bottom: 20px;
+            color: #4a5568;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .modal input:focus {
+            outline: none;
+            border-color: #4299e1;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-secondary {
+            background: #a0aec0;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #718096;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1001;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: #48bb78;
+        }
+
+        .notification.error {
+            background: #f56565;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #718096;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4299e1;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .sidebar {
+                order: 2;
+            }
+            
+            .editor-panel {
+                order: 1;
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌐 Wangluo 文件编辑器</h1>
+            <p>在线编辑 OpenClash 节点配置文件</p>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="file-list">
+                    <h3>📁 文件列表</h3>
+                    <div id="fileList">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            加载中...
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <button class="btn btn-primary" onclick="showCreateFileModal()">
+                            ➕ 新建文件
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="editor-panel">
+                <div class="editor-header">
+                    <div class="editor-title" id="currentFile">请选择文件</div>
+                    <div class="editor-actions">
+                        <button class="btn btn-success" onclick="saveFile()" id="saveBtn" disabled>
+                            💾 保存
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteFile()" id="deleteBtn" disabled>
+                            🗑️ 删除
+                        </button>
+                    </div>
+                </div>
+                <div class="editor-container">
+                    <textarea id="editor" class="editor-textarea" placeholder="选择文件开始编辑..." disabled></textarea>
+                </div>
+                <div class="status-bar" id="statusBar">
+                    就绪
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新建文件模态框 -->
+    <div id="createFileModal" class="modal">
+        <div class="modal-content">
+            <h3>📄 新建文件</h3>
+            <input type="text" id="newFileName" placeholder="请输入文件名 (例如: nodes.txt)" />
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="hideCreateFileModal()">取消</button>
+                <button class="btn btn-primary" onclick="createFile()">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFile = null;
+        let fileList = [];
+        let originalContent = '';
+
+        // 页面加载时获取文件列表
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFileList();
+        });
+
+        // 加载文件列表
+        async function loadFileList() {
+            try {
+                const response = await fetch('/api/files');
+                const data = await response.json();
+                
+                if (data.success) {
+                    fileList = data.files;
+                    renderFileList();
+                } else {
+                    showNotification('加载文件列表失败', 'error');
+                }
+            } catch (error) {
+                showNotification('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 渲染文件列表
+        function renderFileList() {
+            const fileListElement = document.getElementById('fileList');
+            
+            if (fileList.length === 0) {
+                fileListElement.innerHTML = '<p style="color: #718096; text-align: center; padding: 20px;">暂无文件</p>';
+                return;
+            }
+
+            fileListElement.innerHTML = fileList.map(file => `
+                <div class="file-item" onclick="selectFile('${file.name}')">
+                    <div class="file-name">${file.name}</div>
+                    <div class="file-info">
+                        大小: ${formatFileSize(file.size)} | 
+                        修改: ${formatDate(file.modified)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 选择文件
+        async function selectFile(filename) {
+            try {
+                // 更新UI状态
+                document.querySelectorAll('.file-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                event.target.closest('.file-item').classList.add('active');
+
+                // 加载文件内容
+                const response = await fetch(`/api/file/${encodeURIComponent(filename)}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentFile = filename;
+                    originalContent = data.content;
+                    
+                    document.getElementById('editor').value = data.content;
+                    document.getElementById('currentFile').textContent = filename;
+                    document.getElementById('saveBtn').disabled = false;
+                    document.getElementById('deleteBtn').disabled = false;
+                    document.getElementById('editor').disabled = false;
+                    
+                    updateStatusBar(`已加载: ${filename}`);
+                } else {
+                    showNotification('加载文件失败: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showNotification('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 保存文件
+        async function saveFile() {
+            if (!currentFile) return;
+            
+            const content = document.getElementById('editor').value;
+            
+            try {
+                const response = await fetch(`/api/file/${encodeURIComponent(currentFile)}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ content: content })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    originalContent = content;
+                    showNotification('文件保存成功', 'success');
+                    updateStatusBar(`已保存: ${currentFile}`);
+                    loadFileList(); // 刷新文件列表以更新修改时间
+                } else {
+                    showNotification('保存失败: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showNotification('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 删除文件
+        async function deleteFile() {
+            if (!currentFile) return;
+            
+            if (!confirm(`确定要删除文件 "${currentFile}" 吗？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/file/${encodeURIComponent(currentFile)}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('文件删除成功', 'success');
+                    currentFile = null;
+                    document.getElementById('editor').value = '';
+                    document.getElementById('currentFile').textContent = '请选择文件';
+                    document.getElementById('saveBtn').disabled = true;
+                    document.getElementById('deleteBtn').disabled = true;
+                    document.getElementById('editor').disabled = true;
+                    updateStatusBar('文件已删除');
+                    loadFileList();
+                } else {
+                    showNotification('删除失败: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showNotification('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 显示新建文件模态框
+        function showCreateFileModal() {
+            document.getElementById('createFileModal').style.display = 'block';
+            document.getElementById('newFileName').value = '';
+            document.getElementById('newFileName').focus();
+        }
+
+        // 隐藏新建文件模态框
+        function hideCreateFileModal() {
+            document.getElementById('createFileModal').style.display = 'none';
+        }
+
+        // 创建新文件
+        async function createFile() {
+            const filename = document.getElementById('newFileName').value.trim();
+            
+            if (!filename) {
+                showNotification('请输入文件名', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/file', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ filename: filename })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('文件创建成功', 'success');
+                    hideCreateFileModal();
+                    loadFileList();
+                } else {
+                    showNotification('创建失败: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showNotification('网络错误: ' + error.message, 'error');
+            }
+        }
+
+        // 显示通知
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // 更新状态栏
+        function updateStatusBar(message) {
+            document.getElementById('statusBar').textContent = message;
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 格式化日期
+        function formatDate(timestamp) {
+            const date = new Date(timestamp * 1000);
+            return date.toLocaleString('zh-CN');
+        }
+
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 's':
+                        e.preventDefault();
+                        if (!document.getElementById('saveBtn').disabled) {
+                            saveFile();
+                        }
+                        break;
+                }
+            }
+        });
+
+        // 点击模态框外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('createFileModal');
+            if (event.target === modal) {
+                hideCreateFileModal();
+            }
+        }
+    </script>
+</body>
+</html> 
