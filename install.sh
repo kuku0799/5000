@@ -43,7 +43,7 @@ install_python3() {
     
     # 安装 Python3 和相关包
     log_info "正在安装 Python3..."
-    opkg install python3 python3-pip python3-requests python3-yaml
+    opkg install python3 python3-pip python3-requests python3-yaml python3-ruamel-yaml
     
     # 验证安装
     if command -v python3 &> /dev/null; then
@@ -184,9 +184,9 @@ install_dependencies() {
         log_info "Python 依赖安装完成"
     else
         log_warn "pip3 未找到，尝试使用 opkg 安装依赖..."
-        # 尝试使用 opkg 安装 Flask
-        opkg install python3-flask python3-werkzeug
-        log_info "使用 opkg 安装依赖完成"
+            # 尝试使用 opkg 安装依赖
+    opkg install python3-flask python3-werkzeug python3-ruamel-yaml
+    log_info "使用 opkg 安装依赖完成"
     fi
 }
 
