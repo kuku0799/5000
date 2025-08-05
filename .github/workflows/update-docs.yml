@@ -1,0 +1,218 @@
+name: Update Documentation and Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Validate scripts
+      run: |
+        echo "Validating shell scripts..."
+        find . -name "*.sh" -exec bash -n {} \;
+        echo "All shell scripts are valid"
+        
+    - name: Check file permissions
+      run: |
+        echo "Checking file permissions..."
+        ls -la *.sh
+        ls -la *.py
+        
+    - name: Create release notes
+      run: |
+        echo "Creating release notes..."
+        cat > RELEASE_NOTES.md << EOF
+        # Release Notes - OpenClash节点管理系统
+        
+        ## 最新更新
+        
+        ### 🔄 新增功能：开机自启动和后台运行
+        
+        - ✅ **开机自启动**：系统重启后自动启动服务
+        - ✅ **后台运行**：服务在后台持续运行，不占用终端
+        - ✅ **自动重启**：服务异常时自动重启
+        - ✅ **服务管理**：便捷的systemd服务管理
+        - ✅ **日志管理**：完整的日志记录和查看功能
+        
+        ### 📁 新增文件
+        
+        - `auto_start.sh` - 快速自动启动脚本
+        - `service_manager.sh` - 服务管理脚本
+        - `systemd_service.sh` - 完整systemd安装脚本
+        - `README_AutoStart.md` - 开机自启动详细说明文档
+        
+        ### 🔧 更新内容
+        
+        - 更新 `install.sh` - 一键安装脚本，集成开机自启动功能
+        - 更新 `README.md` - 主文档，添加开机自启动说明
+        - 优化服务管理流程
+        - 增强错误处理和日志记录
+        
+        ### 🚀 使用方法
+        
+        #### 一键安装（推荐）
+        \`\`\`bash
+        wget -O - https://raw.githubusercontent.com/kuku0799/5000/main/install.sh | bash
+        \`\`\`
+        
+        #### 手动设置开机自启动
+        \`\`\`bash
+        chmod +x auto_start.sh
+        sudo ./auto_start.sh
+        \`\`\`
+        
+        #### 服务管理
+        \`\`\`bash
+        # 查看状态
+        sudo systemctl status openclash-manager.service
+        
+        # 查看日志
+        sudo journalctl -u openclash-manager.service -f
+        
+        # 重启服务
+        sudo systemctl restart openclash-manager.service
+        \`\`\`
+        
+        ### 📊 系统要求
+        
+        - OpenWrt 系统
+        - Python 3.6+
+        - systemd 支持（推荐）
+        - OpenClash 插件
+        
+        ### 🔒 安全特性
+        
+        - 服务隔离和权限控制
+        - 自动配置验证
+        - 错误时自动回滚
+        - 完整的日志记录
+        
+        ---
+        
+        **注意**：建议在安装前备份现有配置。
+        EOF
+        
+    - name: Update file list
+      run: |
+        echo "Updating file list..."
+        cat > FILE_LIST.md << EOF
+        # 项目文件列表
+        
+        ## 核心系统文件
+        
+        - \`jk.sh\` - 守护进程脚本
+        - \`zr.py\` - 主控制器
+        - \`jx.py\` - 节点解析器
+        - \`zw.py\` - 代理注入器
+        - \`zc.py\` - 策略组注入器
+        - \`log.py\` - 日志管理器
+        
+        ## Web编辑器
+        
+        - \`web_editor.py\` - Web服务器
+        - \`templates/index.html\` - 前端界面
+        - \`requirements.txt\` - Python依赖
+        - \`start_web_editor.sh\` - 启动脚本
+        
+        ## 开机自启动
+        
+        - \`auto_start.sh\` - 快速自动启动脚本
+        - \`service_manager.sh\` - 服务管理脚本
+        - \`systemd_service.sh\` - 完整systemd安装脚本
+        - \`README_AutoStart.md\` - 自启动说明文档
+        
+        ## 安装和配置
+        
+        - \`install.sh\` - 一键安装脚本
+        - \`README.md\` - 主说明文档
+        - \`README_Web_Editor.md\` - Web编辑器说明
+        - \`LICENSE\` - 许可证文件
+        
+        ## 其他文件
+        
+        - \`test_links.py\` - 链接测试工具
+        - \`fix_dependencies.sh\` - 依赖修复脚本
+        - \`QUICK_DEPLOY.md\` - 快速部署说明
+        - \`DEPLOYMENT_SUMMARY.md\` - 部署总结
+        EOF
+        
+    - name: Commit changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add .
+        git diff --quiet && git diff --staged --quiet || git commit -m "Update documentation and add auto-start features"
+        
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ github.ref }}
+        
+  create-release:
+    needs: update-docs
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release v${{ github.run_number }}
+        body: |
+          ## 🔄 开机自启动功能更新
+          
+          ### 新增功能
+          - ✅ 开机自启动支持
+          - ✅ 后台运行服务
+          - ✅ 自动重启机制
+          - ✅ systemd服务管理
+          - ✅ 完整的日志系统
+          
+          ### 使用方法
+          ```bash
+          # 一键安装（推荐）
+          wget -O - https://raw.githubusercontent.com/kuku0799/5000/main/install.sh | bash
+          
+          # 手动设置开机自启动
+          chmod +x auto_start.sh
+          sudo ./auto_start.sh
+          ```
+          
+          ### 服务管理
+          ```bash
+          # 查看状态
+          sudo systemctl status openclash-manager.service
+          
+          # 查看日志
+          sudo journalctl -u openclash-manager.service -f
+          ```
+          
+          详细说明请查看 README_AutoStart.md
+        draft: false
+        prerelease: false 
