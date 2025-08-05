@@ -1,6 +1,6 @@
 # 🌐 OpenClash 节点管理系统
 
-一个完整的 OpenClash 节点管理解决方案，包含自动节点同步和 Web 在线编辑器。
+一个完整的 OpenClash 节点管理解决方案，包含自动节点同步、Web 在线编辑器和开机自启动功能。
 
 ## 📋 功能特点
 
@@ -16,6 +16,13 @@
 - ✅ **文件管理**：创建、编辑、删除文件
 - ✅ **美观界面**：现代化UI设计，响应式布局
 - ✅ **实时保存**：支持快捷键和状态提示
+
+### 🔄 开机自启动
+- ✅ **自动启动**：系统重启后自动启动服务
+- ✅ **后台运行**：服务在后台持续运行，不占用终端
+- ✅ **自动重启**：服务异常时自动重启
+- ✅ **服务管理**：便捷的systemd服务管理
+- ✅ **日志管理**：完整的日志记录和查看功能
 
 ## 🚀 快速部署
 
@@ -46,6 +53,22 @@ python3 web_editor.py
 ./jk.sh &
 ```
 
+### 开机自启动设置
+
+```bash
+# 方法1：使用自动启动脚本（推荐）
+chmod +x auto_start.sh
+sudo ./auto_start.sh
+
+# 方法2：使用服务管理脚本
+chmod +x service_manager.sh
+sudo ./service_manager.sh install
+
+# 方法3：使用完整systemd安装脚本
+chmod +x systemd_service.sh
+sudo ./systemd_service.sh install
+```
+
 ## 📁 项目结构
 
 ```
@@ -63,6 +86,11 @@ python3 web_editor.py
 │   │   └── index.html     # 前端界面
 │   ├── requirements.txt    # Python依赖
 │   └── start_web_editor.sh # 启动脚本
+├── 开机自启动
+│   ├── auto_start.sh      # 快速自动启动脚本
+│   ├── service_manager.sh # 服务管理脚本
+│   ├── systemd_service.sh # 完整systemd安装脚本
+│   └── README_AutoStart.md # 自启动说明文档
 ├── 配置文件
 │   ├── wangluo/
 │   │   ├── nodes.txt      # 节点配置文件
@@ -95,19 +123,57 @@ vless://uuid@server.com:443?security=tls#节点名称
 trojan://password@server.com:443#节点名称
 ```
 
-## 🔧 配置说明
+## 🔧 服务管理
 
-### 修改文件路径
-编辑相关文件中的路径配置：
+### 使用systemd服务（推荐）
+
 ```bash
-# 默认路径
-/root/OpenClashManage/wangluo/
+# 启动服务
+sudo systemctl start openclash-manager.service
+
+# 停止服务
+sudo systemctl stop openclash-manager.service
+
+# 重启服务
+sudo systemctl restart openclash-manager.service
+
+# 查看状态
+sudo systemctl status openclash-manager.service
+
+# 查看日志
+sudo journalctl -u openclash-manager.service -f
 ```
 
-### 修改端口
-编辑 `web_editor.py` 中的端口设置：
-```python
-app.run(host='0.0.0.0', port=5000, debug=False)
+### 使用服务管理脚本
+
+```bash
+# 查看帮助
+./service_manager.sh help
+
+# 安装服务
+sudo ./service_manager.sh install
+
+# 查看状态
+sudo ./service_manager.sh status
+
+# 查看日志
+sudo ./service_manager.sh logs
+
+# 重启服务
+sudo ./service_manager.sh restart
+
+# 卸载服务
+sudo ./service_manager.sh uninstall
+```
+
+### 手动启动（传统方式）
+
+```bash
+# 启动所有服务
+cd /root/OpenClashManage && ./start_all.sh
+
+# 停止所有服务
+cd /root/OpenClashManage && ./stop_all.sh
 ```
 
 ## 🔄 工作流程
@@ -126,39 +192,100 @@ app.run(host='0.0.0.0', port=5000, debug=False)
 - ✅ **自动回滚**：配置错误时自动恢复
 - ✅ **错误处理**：完善的错误处理和日志记录
 - ✅ **权限控制**：安全的文件操作权限
+- ✅ **服务隔离**：systemd服务安全配置
 
 ## 🐛 故障排除
 
 ### 常见问题
 
-1. **Web编辑器无法访问**
+1. **pip3 magic number错误**
+   ```bash
+   # 快速修复pip3错误
+   wget -O - https://raw.githubusercontent.com/kuku0799/5000/main/quick_fix_pip.sh | bash
+   
+   # 或者使用完整修复脚本
+   wget -O - https://raw.githubusercontent.com/kuku0799/5000/main/fix_pip.sh | bash
+   
+   # 手动修复步骤
+   sudo rm -f /usr/bin/pip3
+   sudo opkg update
+   sudo opkg install python3-pip --force-reinstall
+   ```
+
+2. **Web编辑器无法访问**
    ```bash
    # 检查端口是否被占用
    netstat -tlnp | grep 5000
    
    # 检查防火墙设置
    iptables -L
+   
+   # 检查服务状态
+   sudo systemctl status openclash-manager-web.service
    ```
 
-2. **节点同步失败**
+3. **节点同步失败**
    ```bash
    # 查看系统日志
    tail -f /root/OpenClashManage/wangluo/log.txt
    
    # 检查 OpenClash 状态
    /etc/init.d/openclash status
+   
+   # 查看服务日志
+   sudo journalctl -u openclash-manager-watchdog.service -f
    ```
 
-3. **配置文件错误**
+4. **开机自启动不工作**
+   ```bash
+   # 检查服务状态
+   sudo systemctl status openclash-manager.service
+   
+   # 检查服务是否启用
+   sudo systemctl is-enabled openclash-manager.service
+   
+   # 手动启用服务
+   sudo systemctl enable openclash-manager.service
+   ```
+
+5. **配置文件错误**
    ```bash
    # 验证配置文件
    /etc/init.d/openclash verify_config /etc/openclash/config.yaml
    ```
 
+## 📊 监控和维护
+
+### 服务状态检查
+
+```bash
+# 查看所有相关服务状态
+sudo systemctl status openclash-manager*
+
+# 检查进程
+ps aux | grep -E "(jk.sh|web_editor.py)"
+
+# 检查端口监听
+netstat -tlnp | grep :5000
+```
+
+### 日志管理
+
+```bash
+# 查看主服务日志
+sudo journalctl -u openclash-manager.service -f
+
+# 查看守护进程日志
+sudo journalctl -u openclash-manager-watchdog.service -f
+
+# 查看Web编辑器日志
+sudo journalctl -u openclash-manager-web.service -f
+```
+
 ## 📞 技术支持
 
 - 📧 问题反馈：提交 GitHub Issue
-- 📖 详细文档：查看 `README_Web_Editor.md`
+- 📖 详细文档：查看 `README_Web_Editor.md` 和 `README_AutoStart.md`
 - 🔧 配置帮助：查看代码注释
 
 ## 📄 许可证

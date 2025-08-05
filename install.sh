@@ -61,7 +61,15 @@ install_pip3() {
     
     if command -v pip3 &> /dev/null; then
         log_info "pip3 已安装"
-        return 0
+        # 测试pip3是否工作正常
+        if pip3 --version &> /dev/null; then
+            log_info "pip3 工作正常"
+            return 0
+        else
+            log_warn "pip3 已安装但有问题，尝试修复..."
+            fix_pip3
+            return $?
+        fi
     fi
     
     # 尝试安装 pip3
@@ -69,10 +77,52 @@ install_pip3() {
     
     # 验证安装
     if command -v pip3 &> /dev/null; then
-        log_info "pip3 安装成功"
-        return 0
+        if pip3 --version &> /dev/null; then
+            log_info "pip3 安装成功"
+            return 0
+        else
+            log_warn "pip3 安装失败，尝试修复..."
+            fix_pip3
+            return $?
+        fi
     else
         log_warn "pip3 安装失败，将使用 opkg 安装依赖"
+        return 1
+    fi
+}
+
+# 修复pip3问题
+fix_pip3() {
+    log_step "修复pip3问题..."
+    
+    # 备份当前pip
+    if command -v pip3 &> /dev/null; then
+        cp -f /usr/bin/pip3 /usr/bin/pip3.backup 2>/dev/null || true
+        log_info "已备份pip3"
+    fi
+    
+    # 清理损坏的文件
+    rm -f /usr/bin/pip3
+    rm -rf ~/.cache/pip 2>/dev/null || true
+    rm -rf /root/.cache/pip 2>/dev/null || true
+    
+    # 重新安装
+    opkg update
+    opkg install python3-pip --force-reinstall
+    
+    # 如果还是失败，尝试下载get-pip.py
+    if ! command -v pip3 &> /dev/null || ! pip3 --version &> /dev/null; then
+        log_info "尝试使用get-pip.py重新安装..."
+        wget -O /tmp/get-pip.py https://bootstrap.pypa.io/get-pip.py
+        python3 /tmp/get-pip.py --force-reinstall
+    fi
+    
+    # 最终验证
+    if command -v pip3 &> /dev/null && pip3 --version &> /dev/null; then
+        log_info "✅ pip3修复成功"
+        return 0
+    else
+        log_error "❌ pip3修复失败"
         return 1
     fi
 }
@@ -161,6 +211,27 @@ download_files() {
     wget -O /root/OpenClashManage/start_web_editor.sh \
         "https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/start_web_editor.sh"
     
+    # 下载开机自启动相关脚本
+    log_info "下载开机自启动脚本..."
+    
+    wget -O /root/OpenClashManage/auto_start.sh \
+        "https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/auto_start.sh"
+    
+    wget -O /root/OpenClashManage/service_manager.sh \
+        "https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/service_manager.sh"
+    
+    wget -O /root/OpenClashManage/systemd_service.sh \
+        "https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/systemd_service.sh"
+    
+    # 下载修复脚本
+    log_info "下载修复脚本..."
+    
+    wget -O /root/OpenClashManage/fix_pip.sh \
+        "https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/fix_pip.sh"
+    
+    wget -O /root/OpenClashManage/quick_fix_pip.sh \
+        "https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/${GITHUB_BRANCH}/quick_fix_pip.sh"
+    
     log_info "文件下载完成"
 }
 
@@ -170,6 +241,11 @@ set_permissions() {
     
     chmod +x /root/OpenClashManage/jk.sh
     chmod +x /root/OpenClashManage/start_web_editor.sh
+    chmod +x /root/OpenClashManage/auto_start.sh
+    chmod +x /root/OpenClashManage/service_manager.sh
+    chmod +x /root/OpenClashManage/systemd_service.sh
+    chmod +x /root/OpenClashManage/fix_pip.sh
+    chmod +x /root/OpenClashManage/quick_fix_pip.sh
     
     log_info "权限设置完成"
 }
@@ -184,9 +260,9 @@ install_dependencies() {
         log_info "Python 依赖安装完成"
     else
         log_warn "pip3 未找到，尝试使用 opkg 安装依赖..."
-            # 尝试使用 opkg 安装依赖
-    opkg install python3-flask python3-werkzeug python3-ruamel-yaml
-    log_info "使用 opkg 安装依赖完成"
+        # 尝试使用 opkg 安装依赖
+        opkg install python3-flask python3-werkzeug python3-ruamel-yaml
+        log_info "使用 opkg 安装依赖完成"
     fi
 }
 
@@ -264,6 +340,32 @@ EOF
     log_info "服务脚本创建完成"
 }
 
+# 安装systemd服务
+install_systemd_service() {
+    log_step "安装systemd服务（开机自启动）..."
+    
+    # 检查是否支持systemd
+    if ! command -v systemctl &> /dev/null; then
+        log_warn "系统不支持systemd，跳过开机自启动设置"
+        log_info "您可以手动运行以下命令启动服务："
+        log_info "  cd /root/OpenClashManage && ./start_all.sh"
+        return 0
+    fi
+    
+    # 使用自动启动脚本安装服务
+    cd /root/OpenClashManage
+    if ./auto_start.sh; then
+        log_info "✅ systemd服务安装成功"
+        log_info "✅ 开机自启动已启用"
+        return 0
+    else
+        log_warn "⚠️  systemd服务安装失败，将使用手动启动方式"
+        log_info "您可以手动运行以下命令启动服务："
+        log_info "  cd /root/OpenClashManage && ./start_all.sh"
+        return 1
+    fi
+}
+
 # 显示安装信息
 show_install_info() {
     log_step "安装完成！"
@@ -275,16 +377,38 @@ show_install_info() {
     echo "📱 Web编辑器: http://$(hostname -I | awk '{print $1}'):5000"
     echo "📝 配置文件: /root/OpenClashManage/wangluo/nodes.txt"
     echo ""
-    echo "🚀 启动服务:"
-    echo "   cd /root/OpenClashManage && ./start_all.sh"
-    echo ""
-    echo "🛑 停止服务:"
-    echo "   cd /root/OpenClashManage && ./stop_all.sh"
+    
+    # 检查systemd服务状态
+    if command -v systemctl &> /dev/null && systemctl is-enabled openclash-manager.service &> /dev/null; then
+        echo "✅ 开机自启动已启用"
+        echo "🚀 服务管理命令："
+        echo "   启动: systemctl start openclash-manager.service"
+        echo "   停止: systemctl stop openclash-manager.service"
+        echo "   重启: systemctl restart openclash-manager.service"
+        echo "   状态: systemctl status openclash-manager.service"
+        echo "   日志: journalctl -u openclash-manager.service -f"
+        echo ""
+        echo "🔧 服务管理脚本："
+        echo "   状态: cd /root/OpenClashManage && ./service_manager.sh status"
+        echo "   日志: cd /root/OpenClashManage && ./service_manager.sh logs"
+        echo "   重启: cd /root/OpenClashManage && ./service_manager.sh restart"
+    else
+        echo "⚠️  开机自启动未启用，使用手动启动方式"
+        echo "🚀 启动服务:"
+        echo "   cd /root/OpenClashManage && ./start_all.sh"
+        echo ""
+        echo "🛑 停止服务:"
+        echo "   cd /root/OpenClashManage && ./stop_all.sh"
+    fi
+    
     echo ""
     echo "📖 使用说明:"
     echo "   1. 访问 Web 编辑器添加节点"
     echo "   2. 系统自动监控文件变化"
     echo "   3. 自动同步到 OpenClash"
+    echo ""
+    echo "🔧 高级管理："
+    echo "   cd /root/OpenClashManage && ./service_manager.sh help"
     echo ""
     echo "⚠️  注意：请确保已安装 OpenClash 插件"
     echo ""
@@ -303,6 +427,7 @@ main() {
     install_dependencies
     create_sample_files
     create_service_scripts
+    install_systemd_service
     show_install_info
 }
 
